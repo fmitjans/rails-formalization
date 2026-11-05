@@ -1,0 +1,10 @@
+name = "father"
+version = "0.1.0"
+defaultTargets = ["father"]
+
+[[lean_lib]]
+name = "Father"
+
+[[lean_exe]]
+name = "father"
+root = "Main"
