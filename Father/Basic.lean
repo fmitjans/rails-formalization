@@ -1,20 +1,25 @@
 import Father.Comparable
 import Father.Expression
 
-inductive Module (α : Type) where
-  | mk (name : String) (content : α) : Module α
-
-inductive Controller (α : Type) where
-  | mk (name : String) (content : α) : Controller α
-
 inductive Code where
   | frozenStringDeclaration
-  | fromComparable (header : String) (content : List Code) : Code
   | includeStatement : String → Code
   | before_action
     (callbacks : List String)
     (onlyOn : List String)
     (customCall : Option String)
+
+inductive Controller where
+  | mk (name : String) (content : List Code) : Controller
+
+inductive Module where
+  | ofCode (name : String) (content : List Code) : Module
+  | ofController (name : String) (controller : Controller) : Module
+
+inductive Content where
+  | ofCode : Code → Content
+  | ofModule : Module → Content
+  | ofController : Controller → Content
 
 inductive Effect where
   | updatesInstanceAttribute (attr : String) (expr : Expression) : Effect
@@ -49,36 +54,40 @@ example : before_actionComparable ["set_messages"] ["messages"] none
 example : before_actionComparable [] ["show"] "load_conversation_opportunity(@written_conversation)"
        = "before_action(only: %i[show]) { load_conversation_opportunity(@written_conversation) }" := by decide
 
+def wrapperObligations [Comparable α] (header : String) (content : List α) : List String :=
+  [header] ++ content.flatMap Comparable.obligations ++ ["end"]
+
 def Code.obligations : Code → List String
   | .frozenStringDeclaration => ["# frozen_string_literal: true"]
-  | .fromComparable header content => [header] ++ content.flatMap Code.obligations ++ ["end"]
   | .includeStatement included => [s!"include {included}"]
   | .before_action callbacks onlyOn customCall => [before_actionComparable callbacks onlyOn customCall]
 
 instance : Comparable Code where
   obligations := Code.obligations
 
-instance [Comparable α] : Comparable (Module α) where
+instance : Comparable Controller where
   obligations
-    | .mk name content => [s!"module {name}"] ++ Comparable.obligations content ++ ["end"]
+    | .mk name content =>
+        wrapperObligations s!"class {name}Controller < ApplicationController" (Comparable.obligations content)
 
-instance [Comparable α] : Comparable (Controller α) where
+instance : Comparable Module where
   obligations
-    | .mk name content => [s!"class {name}Controller < ApplicationController"] ++ Comparable.obligations content ++ ["end"]
+    | .ofCode name content => wrapperObligations s!"module {name}" (Comparable.obligations content)
+    | .ofController name controller => wrapperObligations s!"module {name}" (Comparable.obligations controller)
 
-def Code.ofModule : Module (List Code) → Code
-  | .mk name content => .fromComparable s!"module {name}" content
-
-def Code.ofController : Controller (List Code) → Code
-  | .mk name content => .fromComparable s!"class {name}Controller < ApplicationController" content
+instance : Comparable Content where
+  obligations
+    | .ofCode code => Comparable.obligations code
+    | .ofModule module => Comparable.obligations module
+    | .ofController controller => Comparable.obligations controller
 
 open Code
-def writtenConversation : List Code := [
-  frozenStringDeclaration,
-  Code.ofModule (.mk "Api" [
-    Code.ofController (.mk "WrittenConversations" [
+def writtenConversation : List Content := [
+  .ofCode frozenStringDeclaration,
+  .ofModule ( .ofController "Api"
+    (.mk "WrittenConversations" [
       includeStatement "LoadsConversationOpportunity",
       before_action ["set_written_conversation"] ["show", "messages"] none
     ])
-  ])
+  )
 ]
