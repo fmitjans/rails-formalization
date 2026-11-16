@@ -12,14 +12,9 @@ inductive Code where
 inductive Controller where
   | mk (name : String) (content : List Code) : Controller
 
-inductive Module where
-  | ofCode (name : String) (content : List Code) : Module
-  | ofController (name : String) (controller : Controller) : Module
-
-inductive Content where
-  | ofCode : Code → Content
-  | ofModule : Module → Content
-  | ofController : Controller → Content
+structure Module where
+  name : String
+  bodyObligations : List String
 
 inductive Effect where
   | updatesInstanceAttribute (attr : String) (expr : Expression) : Effect
@@ -70,16 +65,29 @@ instance : Comparable Controller where
     | .mk name content =>
         wrapperObligations s!"class {name}Controller < ApplicationController" (Comparable.obligations content)
 
+def Module.ofCode (name : String) (content : List Code) : Module :=
+  ⟨name, Comparable.obligations content⟩
+
+def Module.ofController (name : String) (controller : Controller) : Module :=
+  ⟨name, Comparable.obligations controller⟩
+
 instance : Comparable Module where
-  obligations
-    | .ofCode name content => wrapperObligations s!"module {name}" (Comparable.obligations content)
-    | .ofController name controller => wrapperObligations s!"module {name}" (Comparable.obligations controller)
+  obligations m := wrapperObligations s!"module {m.name}" m.bodyObligations
+
+structure Content where
+  lines : List String
+
+def Content.ofCode (code : Code) : Content :=
+  ⟨Comparable.obligations code⟩
+
+def Content.ofModule (module : Module) : Content :=
+  ⟨Comparable.obligations module⟩
+
+def Content.ofController (controller : Controller) : Content :=
+  ⟨Comparable.obligations controller⟩
 
 instance : Comparable Content where
-  obligations
-    | .ofCode code => Comparable.obligations code
-    | .ofModule module => Comparable.obligations module
-    | .ofController controller => Comparable.obligations controller
+  obligations c := c.lines
 
 open Code
 def writtenConversation : List Content := [
