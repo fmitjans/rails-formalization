@@ -63,14 +63,7 @@ def Content.ofCode (content : List Code) : Content :=
 def Content.ofController (controller : Controller) : Content :=
   ⟨Comparable.obligations controller⟩
 
-def Module.fromContent (name : String) (content : Content) : Module :=
-  { content with name := name }
-
-def Module.ofCode (name : String) (content : List Code) : Module :=
-  Module.fromContent name (Content.ofCode content)
-
-def Module.ofController (name : String) (controller : Controller) : Module :=
-  Module.fromContent name (Content.ofController controller)
+def Module.mk2 [Comparable α] (name : String) (a : α) : Module := ⟨⟨Comparable.obligations a⟩, name⟩
 
 instance : Comparable Module where
   obligations m := wrapperObligations s!"module {m.name}" m.lines
@@ -81,8 +74,8 @@ def Content.ofModule (module : Module) : Content :=
 open Code
 def writtenConversation : List Content := [
   .ofCode [frozenStringDeclaration],
-  .ofModule ( .ofController "Api"
-    (.mk "WrittenConversations" [
+  .ofModule ( .mk2 "Api"
+    (Controller.mk "WrittenConversations" [
       includeStatement "LoadsConversationOpportunity",
       before_action ["set_written_conversation"] ["show", "messages"] none
     ])
