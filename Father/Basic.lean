@@ -21,17 +21,6 @@ instance : Comparable Content where
 structure Module extends Content where
   name : String
 
-inductive Effect where
-  | updatesInstanceAttribute (attr : String) (expr : Expression) : Effect
-  | conditionalOn (condition : Prop) : Effect → Effect
-
-def exampleExpr := Expression.fromDB "conversations"
-def exampleEffect := Effect.updatesInstanceAttribute "@written_conversation" exampleExpr
-
-inductive FileDescription where
-  | «partial» : Code → FileDescription
-  | complete : Code → FileDescription
-
 def String.toSymbol (name : String) := ":" ++ name
 
 def before_actionComparable (callbacks : List String)
@@ -66,9 +55,7 @@ instance : Comparable Code where
   obligations := Code.obligations
 
 instance : Comparable Controller where
-  obligations
-    | .mk name content =>
-        wrapperObligations s!"class {name}Controller < ApplicationController" (Comparable.obligations content)
+  obligations | .mk name content => wrapperObligations s!"class {name}Controller < ApplicationController" content
 
 def Content.ofCode (content : List Code) : Content :=
   ⟨Comparable.obligations content⟩
