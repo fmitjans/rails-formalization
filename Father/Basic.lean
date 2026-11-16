@@ -12,9 +12,14 @@ inductive Code where
 inductive Controller where
   | mk (name : String) (content : List Code) : Controller
 
-structure Module where
+structure Content where
+  lines : List String
+
+instance : Comparable Content where
+  obligations c := c.lines
+
+structure Module extends Content where
   name : String
-  bodyObligations : List String
 
 inductive Effect where
   | updatesInstanceAttribute (attr : String) (expr : Expression) : Effect
@@ -65,33 +70,30 @@ instance : Comparable Controller where
     | .mk name content =>
         wrapperObligations s!"class {name}Controller < ApplicationController" (Comparable.obligations content)
 
-def Module.ofCode (name : String) (content : List Code) : Module :=
-  ⟨name, Comparable.obligations content⟩
-
-def Module.ofController (name : String) (controller : Controller) : Module :=
-  ⟨name, Comparable.obligations controller⟩
-
-instance : Comparable Module where
-  obligations m := wrapperObligations s!"module {m.name}" m.bodyObligations
-
-structure Content where
-  lines : List String
-
-def Content.ofCode (code : Code) : Content :=
-  ⟨Comparable.obligations code⟩
-
-def Content.ofModule (module : Module) : Content :=
-  ⟨Comparable.obligations module⟩
+def Content.ofCode (content : List Code) : Content :=
+  ⟨Comparable.obligations content⟩
 
 def Content.ofController (controller : Controller) : Content :=
   ⟨Comparable.obligations controller⟩
 
-instance : Comparable Content where
-  obligations c := c.lines
+def Module.fromContent (name : String) (content : Content) : Module :=
+  { content with name := name }
+
+def Module.ofCode (name : String) (content : List Code) : Module :=
+  Module.fromContent name (Content.ofCode content)
+
+def Module.ofController (name : String) (controller : Controller) : Module :=
+  Module.fromContent name (Content.ofController controller)
+
+instance : Comparable Module where
+  obligations m := wrapperObligations s!"module {m.name}" m.lines
+
+def Content.ofModule (module : Module) : Content :=
+  ⟨Comparable.obligations module⟩
 
 open Code
 def writtenConversation : List Content := [
-  .ofCode frozenStringDeclaration,
+  .ofCode [frozenStringDeclaration],
   .ofModule ( .ofController "Api"
     (.mk "WrittenConversations" [
       includeStatement "LoadsConversationOpportunity",
