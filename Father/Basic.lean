@@ -77,7 +77,10 @@ def writtenConversation : List Content := [
   .ofModule ( .mk2 "Api"
     (Controller.mk "WrittenConversations" [
       includeStatement "LoadsConversationOpportunity",
-      before_action ["set_written_conversation"] ["show", "messages"] none
+      before_action ["set_written_conversation"] ["show", "messages"] none,
+      before_action ["set_transcript"] ["show"] none,
+      before_action ["set_messages"] ["messages"] none,
+      before_action [] ["show"] (some "load_conversation_opportunity(@written_conversation)")
     ])
   )
 ]
