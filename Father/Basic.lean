@@ -8,6 +8,7 @@ inductive Code where
     (callbacks : List String)
     (onlyOn : List String)
     (customCall : Option String)
+  | methodDefinition (name : String) (body : List Expression)
 
 inductive Controller where
   | mk (name : String) (content : List Code) : Controller
@@ -50,6 +51,7 @@ def Code.obligations : Code → List String
   | .frozenStringDeclaration => ["# frozen_string_literal: true"]
   | .includeStatement included => [s!"include {included}"]
   | .before_action callbacks onlyOn customCall => [before_actionComparable callbacks onlyOn customCall]
+  | .methodDefinition name body => wrapperObligations s!"def {name}" body
 
 instance : Comparable Code where
   obligations := Code.obligations
@@ -72,6 +74,8 @@ def Content.ofModule (module : Module) : Content :=
   ⟨Comparable.obligations module⟩
 
 open Code
+open Expression
+
 def writtenConversation : List Content := [
   .ofCode [frozenStringDeclaration],
   .ofModule ( .mk2 "Api"
@@ -80,7 +84,15 @@ def writtenConversation : List Content := [
       before_action ["set_written_conversation"] ["show", "messages"] none,
       before_action ["set_transcript"] ["show"] none,
       before_action ["set_messages"] ["messages"] none,
-      before_action [] ["show"] (some "load_conversation_opportunity(@written_conversation)")
+      before_action [] ["show"] (some "load_conversation_opportunity(@written_conversation)"),
+      methodDefinition "show" [
+        functionCall "authorize" [unspecified "@written_conversation"],
+        functionCall "respond_with" [unspecified "@written_conversation"]
+      ],
+      methodDefinition "messages" [
+        functionCall "authorize" [unspecified "@written_conversation"],
+        functionCall "respond_with" [unspecified "@messages"]
+      ]
     ])
   )
 ]

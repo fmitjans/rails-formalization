@@ -17,3 +17,6 @@ def Expression.toString : Expression → String
   | unspecified literal => literal
 
 instance : ToString Expression := ⟨Expression.toString⟩
+
+instance : Comparable Expression where
+  obligations e := [Expression.toString e]
