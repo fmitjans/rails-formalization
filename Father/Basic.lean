@@ -9,6 +9,7 @@ inductive Code where
     (onlyOn : List String)
     (customCall : Option String)
   | methodDefinition (name : String) (body : List Expression)
+  | privateKeyword
 
 inductive Controller where
   | mk (name : String) (content : List Code) : Controller
@@ -52,6 +53,7 @@ def Code.obligations : Code → List String
   | .includeStatement included => [s!"include {included}"]
   | .before_action callbacks onlyOn customCall => [before_actionComparable callbacks onlyOn customCall]
   | .methodDefinition name body => wrapperObligations s!"def {name}" body
+  | .privateKeyword => ["private"]
 
 instance : Comparable Code where
   obligations := Code.obligations
@@ -92,7 +94,8 @@ def writtenConversation : List Content := [
       methodDefinition "messages" [
         functionCall "authorize" [unspecified "@written_conversation"],
         functionCall "respond_with" [unspecified "@messages"]
-      ]
+      ],
+      privateKeyword
     ])
   )
 ]
