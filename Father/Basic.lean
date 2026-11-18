@@ -10,6 +10,7 @@ inductive Code where
     (customCall : Option String)
   | methodDefinition (name : String) (body : List Expression)
   | privateKeyword
+  | assignment (id : Identifier) (value : Expression)
 
 inductive Controller where
   | mk (name : String) (content : List Code) : Controller
@@ -54,12 +55,31 @@ def Code.obligations : Code → List String
   | .before_action callbacks onlyOn customCall => [before_actionComparable callbacks onlyOn customCall]
   | .methodDefinition name body => wrapperObligations s!"def {name}" body
   | .privateKeyword => ["private"]
+  | .assignment id value =>
+    match Comparable.obligations value with
+    | [] => []
+    | first :: rest => s!"{id.name} = {first}" :: rest
 
 instance : Comparable Code where
   obligations := Code.obligations
 
 instance : Comparable Controller where
   obligations | .mk name content => wrapperObligations s!"class {name}Controller < ApplicationController" content
+
+example : Code.obligations (.assignment ⟨"@written_conversation"⟩
+             (.multilineChainedCall
+               (.functionCall "policy_scope" [.unspecified "current_company.written_conversations"])
+               [.functionCall "includes" [.unspecified "last_transcript: { transcript_playbooks: :crm_integration_logs }"]]))
+         = ["@written_conversation = policy_scope(current_company.written_conversations)",
+            ".includes(last_transcript: { transcript_playbooks: :crm_integration_logs })"] := by native_decide
+
+-- A single-line chain, e.g. `current_company.users.active.where(id: ids).limit(10)`,
+-- uses `chainedCall` instead and stays one line through `obligations`.
+example : Code.obligations (.assignment ⟨"@matching_users"⟩
+             (.chainedCall
+               (.identifier ⟨"current_company.users.active"⟩)
+               [.functionCall "where" [.unspecified "id: ids"], .functionCall "limit" [.unspecified "10"]]))
+         = ["@matching_users = current_company.users.active.where(id: ids).limit(10)"] := by native_decide
 
 def Content.ofCode (content : List Code) : Content :=
   ⟨Comparable.obligations content⟩
