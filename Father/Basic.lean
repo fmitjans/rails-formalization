@@ -8,9 +8,10 @@ inductive Code where
     (callbacks : List String)
     (onlyOn : List String)
     (customCall : Option String)
-  | methodDefinition (name : String) (body : List Expression)
+  | methodDefinition (name : String) (body : List Code)
   | privateKeyword
   | assignment (id : Identifier) (value : Expression)
+  | expressionStatement (expr : Expression)
 
 inductive Controller where
   | mk (name : String) (content : List Code) : Controller
@@ -53,12 +54,13 @@ def Code.obligations : Code → List String
   | .frozenStringDeclaration => ["# frozen_string_literal: true"]
   | .includeStatement included => [s!"include {included}"]
   | .before_action callbacks onlyOn customCall => [before_actionComparable callbacks onlyOn customCall]
-  | .methodDefinition name body => wrapperObligations s!"def {name}" body
+  | .methodDefinition name body => [s!"def {name}"] ++ body.flatMap Code.obligations ++ ["end"]
   | .privateKeyword => ["private"]
   | .assignment id value =>
     match Comparable.obligations value with
     | [] => []
     | first :: rest => s!"{id.name} = {first}" :: rest
+  | .expressionStatement expr => Comparable.obligations expr
 
 instance : Comparable Code where
   obligations := Code.obligations
@@ -108,14 +110,23 @@ def writtenConversation : List Content := [
       before_action ["set_messages"] ["messages"] none,
       before_action [] ["show"] (some "load_conversation_opportunity(@written_conversation)"),
       methodDefinition "show" [
-        functionCall "authorize" [unspecified "@written_conversation"],
-        functionCall "respond_with" [unspecified "@written_conversation"]
+        expressionStatement (functionCall "authorize" [unspecified "@written_conversation"]),
+        expressionStatement (functionCall "respond_with" [unspecified "@written_conversation"])
       ],
       methodDefinition "messages" [
-        functionCall "authorize" [unspecified "@written_conversation"],
-        functionCall "respond_with" [unspecified "@messages"]
+        expressionStatement (functionCall "authorize" [unspecified "@written_conversation"]),
+        expressionStatement (functionCall "respond_with" [unspecified "@messages"])
       ],
-      privateKeyword
+      privateKeyword,
+      methodDefinition "set_written_conversation" [
+        assignment ⟨"@written_conversation"⟩
+          (multilineChainedCall
+            (functionCall "policy_scope" [unspecified "current_company.written_conversations"])
+            [functionCall "includes" [unspecified "last_transcript: { transcript_playbooks: :crm_integration_logs }"],
+             functionCall "find_by" [unspecified "id: params[:id]"]]),
+        expressionStatement
+          (unlessConditional (unspecified "head :not_found") (identifier ⟨"@written_conversation.present?"⟩))
+      ]
     ])
   )
 ]

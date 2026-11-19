@@ -13,6 +13,7 @@ inductive Expression where
   | identifier (id : Identifier) : Expression
   | chainedCall (receiver : Expression) (chain : List Expression) : Expression
   | multilineChainedCall (receiver : Expression) (chain : List Expression) : Expression
+  | unlessConditional (effect : Expression) (condition : Expression) : Expression
 
 open Expression
 def exampleExpr := functionCall "authorize" [unspecified "@written_conversation"]
@@ -26,6 +27,8 @@ def Expression.toString : Expression → String
     receiver.toString ++ "".intercalate (chain.map (s!".{Expression.toString ·}"))
   | multilineChainedCall receiver chain =>
     receiver.toString ++ "".intercalate (chain.map (s!".{Expression.toString ·}"))
+  | unlessConditional effect condition =>
+    s!"{effect.toString} unless {condition.toString}"
 
 instance : ToString Expression := ⟨Expression.toString⟩
 
